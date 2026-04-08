@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0a0e1a">
+    <title>VéloWay</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Splash Screen -->
+    <div id="splash" class="splash">
+        <div class="splash-content">
+            <div class="splash-logo">
+                <svg viewBox="0 0 80 80" class="splash-icon">
+                    <circle cx="25" cy="55" r="16" fill="none" stroke="var(--accent)" stroke-width="3"/>
+                    <circle cx="55" cy="55" r="16" fill="none" stroke="var(--accent)" stroke-width="3"/>
+                    <circle cx="25" cy="55" r="3" fill="var(--accent)"/>
+                    <circle cx="55" cy="55" r="3" fill="var(--accent)"/>
+                    <path d="M25 55 L38 25 L45 25 L55 55" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round"/>
+                    <path d="M38 25 L55 55" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+                    <circle cx="42" cy="25" r="4" fill="none" stroke="var(--accent)" stroke-width="2"/>
+                </svg>
+            </div>
+            <h1 class="splash-title">VéloWay</h1>
+            <p class="splash-sub" data-i18n="splash_sub">Trace ta route</p>
+            <div class="splash-loader"><div class="loader-bar"></div></div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="app" class="app hidden">
+        <!-- Top Bar -->
+        <header class="topbar">
+            <button class="btn-icon" id="btn-menu" aria-label="Menu">
+                <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+            <h1 class="topbar-title">VéloWay</h1>
+            <button class="btn-icon" id="btn-profile" aria-label="Profile">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+            </button>
+        </header>
+
+        <!-- Map Container -->
+        <div id="map"></div>
+
+        <!-- Search Bar (over map) -->
+        <div class="search-bar">
+            <svg viewBox="0 0 24 24" class="search-icon"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 16l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <input type="text" id="search-input" data-i18n-placeholder="search_placeholder" placeholder="Rechercher un lieu...">
+            <div id="search-results" class="search-results hidden"></div>
+        </div>
+
+        <!-- Route Type Selector (floating) -->
+        <div class="route-type-selector" id="route-type-selector">
+            <button class="route-type-btn active" data-type="road">
+                <svg viewBox="0 0 24 24"><path d="M4 20L12 4l8 16" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                <span data-i18n="road">Route</span>
+            </button>
+            <button class="route-type-btn" data-type="mtb">
+                <svg viewBox="0 0 24 24"><path d="M2 20c4-4 4-12 10-12s6 8 10 12" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                <span data-i18n="mtb">VTT</span>
+            </button>
+            <button class="route-type-btn" data-type="random">
+                <svg viewBox="0 0 24 24"><path d="M4 4c8 0 4 16 16 16M4 20c8 0 4-16 16-16" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                <span data-i18n="random">Aléatoire</span>
+            </button>
+        </div>
+
+        <!-- Distance Slider Panel -->
+        <div class="distance-panel" id="distance-panel">
+            <div class="distance-header">
+                <span data-i18n="target_distance">Distance cible</span>
+                <span class="distance-value" id="distance-value">20 km</span>
+            </div>
+            <input type="range" id="distance-slider" min="5" max="150" value="20" step="5">
+            <div class="distance-labels">
+                <span>5 km</span><span>150 km</span>
+            </div>
+            <div class="distance-actions">
+                <button class="btn-generate" id="btn-generate" data-i18n="generate_route">Générer un parcours</button>
+                <div class="loop-toggle">
+                    <label class="toggle-label">
+                        <input type="checkbox" id="loop-toggle" checked>
+                        <span class="toggle-slider"></span>
+                        <span data-i18n="loop">Boucle</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Route Stats Panel -->
+        <div class="stats-panel hidden" id="stats-panel">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">📏</div>
+                    <div class="stat-value" id="stat-distance">0 km</div>
+                    <div class="stat-label" data-i18n="distance">Distance</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">⏱️</div>
+                    <div class="stat-value" id="stat-duration">0 min</div>
+                    <div class="stat-label" data-i18n="duration">Durée</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">⬆️</div>
+                    <div class="stat-value" id="stat-ascent">0 m</div>
+                    <div class="stat-label" data-i18n="ascent">Dénivelé +</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">⬇️</div>
+                    <div class="stat-value" id="stat-descent">0 m</div>
+                    <div class="stat-label" data-i18n="descent">Dénivelé -</div>
+                </div>
+            </div>
+            <!-- Elevation Chart -->
+            <div class="elevation-chart" id="elevation-chart">
+                <canvas id="elevation-canvas"></canvas>
+            </div>
+            <div class="stats-actions">
+                <button class="btn-action btn-save" id="btn-save" data-i18n="save_route">💾 Sauvegarder</button>
+                <button class="btn-action btn-go" id="btn-go" data-i18n="go">🚀 GO</button>
+                <button class="btn-action btn-clear" id="btn-clear" data-i18n="clear">✕ Effacer</button>
+            </div>
+        </div>
+
+        <!-- Navigation Mode (GO) -->
+        <div class="nav-mode hidden" id="nav-mode">
+            <div class="nav-top">
+                <div class="nav-instruction" id="nav-instruction">
+                    <div class="nav-arrow" id="nav-arrow">↑</div>
+                    <div class="nav-text" id="nav-text">Démarrage...</div>
+                </div>
+            </div>
+            <div class="nav-stats">
+                <div class="nav-stat">
+                    <span class="nav-stat-val" id="nav-remaining-dist">0 km</span>
+                    <span class="nav-stat-lbl" data-i18n="remaining">Restant</span>
+                </div>
+                <div class="nav-stat">
+                    <span class="nav-stat-val" id="nav-speed">0</span>
+                    <span class="nav-stat-lbl">km/h</span>
+                </div>
+                <div class="nav-stat">
+                    <span class="nav-stat-val" id="nav-eta">--:--</span>
+                    <span class="nav-stat-lbl">ETA</span>
+                </div>
+            </div>
+            <button class="btn-stop-nav" id="btn-stop-nav" data-i18n="stop_nav">Arrêter la navigation</button>
+        </div>
+
+        <!-- Side Menu -->
+        <div class="side-menu hidden" id="side-menu">
+            <div class="menu-overlay" id="menu-overlay"></div>
+            <div class="menu-panel">
+                <div class="menu-header">
+                    <div class="menu-avatar" id="menu-avatar">
+                        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                    </div>
+                    <div class="menu-user">
+                        <span class="menu-username" id="menu-username" data-i18n="guest">Invité</span>
+                        <button class="btn-login" id="btn-login" data-i18n="login_google">Connexion Google</button>
+                    </div>
+                </div>
+                <nav class="menu-nav">
+                    <button class="menu-item" data-panel="saved">
+                        <span>📂</span><span data-i18n="my_routes">Mes parcours</span>
+                    </button>
+                    <button class="menu-item" data-panel="history">
+                        <span>📊</span><span data-i18n="history">Historique</span>
+                    </button>
+                    <button class="menu-item" data-panel="friends">
+                        <span>👥</span><span data-i18n="friends">Amis</span>
+                    </button>
+                    <button class="menu-item" data-panel="messages">
+                        <span>💬</span><span data-i18n="messages">Messages</span>
+                    </button>
+                    <button class="menu-item" data-panel="settings">
+                        <span>⚙️</span><span data-i18n="settings">Paramètres</span>
+                    </button>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Sub Panels -->
+        <div class="sub-panel hidden" id="panel-saved">
+            <div class="sub-panel-header">
+                <button class="btn-back" id="btn-back-saved">←</button>
+                <h2 data-i18n="my_routes">Mes parcours</h2>
+            </div>
+            <div class="sub-panel-content" id="saved-list">
+                <p class="empty-state" data-i18n="no_saved">Aucun parcours sauvegardé</p>
+            </div>
+        </div>
+
+        <div class="sub-panel hidden" id="panel-history">
+            <div class="sub-panel-header">
+                <button class="btn-back" id="btn-back-history">←</button>
+                <h2 data-i18n="history">Historique</h2>
+            </div>
+            <div class="sub-panel-content" id="history-list">
+                <p class="empty-state" data-i18n="no_history">Aucun historique</p>
+            </div>
+        </div>
+
+        <div class="sub-panel hidden" id="panel-friends">
+            <div class="sub-panel-header">
+                <button class="btn-back" id="btn-back-friends">←</button>
+                <h2 data-i18n="friends">Amis</h2>
+            </div>
+            <div class="sub-panel-content">
+                <div class="friend-add">
+                    <input type="text" id="friend-email" data-i18n-placeholder="friend_email" placeholder="Email de l'ami...">
+                    <button class="btn-add-friend" id="btn-add-friend">+</button>
+                </div>
+                <div id="friends-list">
+                    <p class="empty-state" data-i18n="no_friends">Aucun ami ajouté</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="sub-panel hidden" id="panel-messages">
+            <div class="sub-panel-header">
+                <button class="btn-back" id="btn-back-messages">←</button>
+                <h2 data-i18n="messages">Messages</h2>
+            </div>
+            <div class="sub-panel-content" id="messages-list">
+                <p class="empty-state" data-i18n="no_messages">Aucun message</p>
+            </div>
+        </div>
+
+        <div class="sub-panel hidden" id="panel-settings">
+            <div class="sub-panel-header">
+                <button class="btn-back" id="btn-back-settings">←</button>
+                <h2 data-i18n="settings">Paramètres</h2>
+            </div>
+            <div class="sub-panel-content">
+                <div class="setting-item">
+                    <span data-i18n="language">Langue</span>
+                    <select id="lang-select">
+                        <option value="fr">Français</option>
+                        <option value="en">English</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <span data-i18n="units">Unités</span>
+                    <select id="units-select">
+                        <option value="km">Kilomètres</option>
+                        <option value="mi">Miles</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <span data-i18n="map_style">Style carte</span>
+                    <select id="map-style-select">
+                        <option value="satellite">Satellite</option>
+                        <option value="street">Street</option>
+                        <option value="topo">Topo</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <span data-i18n="avg_speed">Vitesse moyenne (km/h)</span>
+                    <input type="number" id="avg-speed" value="20" min="5" max="50">
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast -->
+        <div class="toast hidden" id="toast"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- Firebase SDK (compat mode for simple script tags) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+    <script src="js/i18n.js"></script>
+    <script src="js/map-module.js"></script>
+    <script src="js/routing-module.js"></script>
+    <script src="js/navigation-module.js"></script>
+    <script src="js/social-module.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/sw-register.js"></script>
+</body>
+</html>
