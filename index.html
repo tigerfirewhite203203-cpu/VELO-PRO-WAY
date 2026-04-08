@@ -7,12 +7,224 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#0a0e1a">
     <title>VéloWay</title>
-    <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="icons/icon-192.png">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css">
+<style>
+:root {
+    --bg: #0a0e1a;
+    --bg2: #111829;
+    --bg3: #1a2238;
+    --surface: #1e2a42;
+    --surface2: #253350;
+    --accent: #00e676;
+    --accent2: #00c853;
+    --accent-glow: rgba(0, 230, 118, 0.3);
+    --text: #e8ecf4;
+    --text2: #8a94a8;
+    --text3: #5a6478;
+    --danger: #ff5252;
+    --warning: #ffd740;
+    --radius: 14px;
+    --radius-sm: 8px;
+    --shadow: 0 4px 24px rgba(0,0,0,0.4);
+    --font: 'Outfit', -apple-system, sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+    height: 100%; overflow: hidden;
+    font-family: var(--font); background: var(--bg); color: var(--text);
+    -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none;
+}
+.hidden { display: none !important; }
+
+/* SPLASH */
+.splash {
+    position: fixed; inset: 0; z-index: 9999; background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+}
+.splash.fade-out { animation: splashOut 0.5s ease forwards; }
+.splash-content { text-align: center; }
+.splash-icon { width: 100px; height: 100px; animation: pulse 1.5s ease infinite; }
+.splash-title { font-size: 2.5rem; font-weight: 800; color: var(--accent); letter-spacing: 3px; margin: 12px 0 6px; }
+.splash-sub { color: var(--text2); font-size: 0.95rem; font-weight: 300; }
+.splash-loader { width: 160px; height: 3px; background: var(--bg3); border-radius: 3px; margin: 24px auto 0; overflow: hidden; }
+.loader-bar { width: 0; height: 100%; background: var(--accent); border-radius: 3px; animation: load 2.2s ease forwards; }
+@keyframes load { to { width: 100%; } }
+@keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+@keyframes splashOut { to { opacity: 0; pointer-events: none; } }
+
+/* TOPBAR */
+.topbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 900; height: 56px;
+    display: flex; align-items: center; justify-content: space-between; padding: 0 12px;
+    background: linear-gradient(180deg, rgba(10,14,26,0.95) 0%, rgba(10,14,26,0.6) 100%);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+}
+.topbar-title { font-size: 1.2rem; font-weight: 700; color: var(--accent); letter-spacing: 2px; }
+.btn-icon {
+    width: 40px; height: 40px; background: rgba(255,255,255,0.08); border: none;
+    border-radius: 50%; color: var(--text); display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.2s;
+}
+.btn-icon svg { width: 20px; height: 20px; }
+.btn-icon:active { transform: scale(0.9); background: rgba(255,255,255,0.15); }
+
+/* MAP */
+#map { position: fixed; inset: 0; z-index: 1; }
+.leaflet-control-zoom { display: none; }
+
+/* SEARCH */
+.search-bar {
+    position: fixed; top: 64px; left: 12px; right: 12px; z-index: 800;
+    display: flex; align-items: center; background: var(--bg2); border: 1px solid var(--bg3);
+    border-radius: var(--radius); padding: 0 14px; box-shadow: var(--shadow);
+}
+.search-icon { width: 18px; height: 18px; color: var(--text3); flex-shrink: 0; }
+.search-bar input {
+    flex: 1; background: none; border: none; outline: none;
+    color: var(--text); font-family: var(--font); font-size: 0.9rem; padding: 12px 10px;
+}
+.search-bar input::placeholder { color: var(--text3); }
+.search-results {
+    position: absolute; top: 100%; left: 0; right: 0;
+    background: var(--bg2); border: 1px solid var(--bg3);
+    border-radius: 0 0 var(--radius) var(--radius); max-height: 240px; overflow-y: auto;
+}
+.search-result-item {
+    padding: 12px 14px; cursor: pointer; border-bottom: 1px solid var(--bg3);
+    font-size: 0.85rem; color: var(--text2);
+}
+.search-result-item:active { background: var(--surface); }
+
+/* ROUTE TYPE */
+.route-type-selector {
+    position: fixed; top: 120px; right: 12px; z-index: 700;
+    display: flex; flex-direction: column; gap: 6px;
+}
+.route-type-btn {
+    width: 52px; height: 52px; background: var(--bg2); border: 2px solid var(--bg3);
+    border-radius: var(--radius-sm); color: var(--text2);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px; cursor: pointer; font-size: 0.55rem; font-family: var(--font); font-weight: 500;
+}
+.route-type-btn svg { width: 20px; height: 20px; }
+.route-type-btn.active {
+    border-color: var(--accent); color: var(--accent); background: rgba(0,230,118,0.08);
+    box-shadow: 0 0 16px var(--accent-glow);
+}
+.route-type-btn:active { transform: scale(0.92); }
+
+/* DISTANCE PANEL */
+.distance-panel {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 600;
+    background: var(--bg2); border-top: 1px solid var(--bg3);
+    border-radius: var(--radius) var(--radius) 0 0; padding: 18px 16px 28px;
+    box-shadow: 0 -4px 32px rgba(0,0,0,0.5);
+}
+.distance-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 0.85rem; color: var(--text2); }
+.distance-value { font-family: var(--mono); font-size: 1.4rem; font-weight: 700; color: var(--accent); }
+input[type="range"] { width: 100%; height: 6px; -webkit-appearance: none; background: var(--bg3); border-radius: 3px; outline: none; }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; background: var(--accent); border-radius: 50%; box-shadow: 0 0 12px var(--accent-glow); cursor: pointer; }
+.distance-labels { display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text3); margin-top: 4px; }
+.distance-actions { display: flex; gap: 12px; align-items: center; margin-top: 16px; }
+.btn-generate {
+    flex: 1; padding: 14px; background: var(--accent); color: var(--bg); border: none;
+    border-radius: var(--radius-sm); font-family: var(--font); font-size: 0.95rem; font-weight: 700; cursor: pointer;
+}
+.btn-generate:active { transform: scale(0.97); filter: brightness(0.9); }
+.loop-toggle { flex-shrink: 0; }
+.toggle-label { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text2); cursor: pointer; }
+.toggle-label input { display: none; }
+.toggle-slider { width: 40px; height: 22px; background: var(--bg3); border-radius: 11px; position: relative; transition: background 0.3s; }
+.toggle-slider::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; background: var(--text3); border-radius: 50%; transition: all 0.3s; }
+.toggle-label input:checked + .toggle-slider { background: var(--accent); }
+.toggle-label input:checked + .toggle-slider::after { left: 21px; background: var(--bg); }
+
+/* STATS PANEL */
+.stats-panel {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 600; background: var(--bg2);
+    border-top: 1px solid var(--bg3); border-radius: var(--radius) var(--radius) 0 0;
+    padding: 16px 12px 28px; box-shadow: 0 -4px 32px rgba(0,0,0,0.5); max-height: 55vh; overflow-y: auto;
+}
+.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.stat-card { background: var(--surface); border-radius: var(--radius-sm); padding: 10px 6px; text-align: center; }
+.stat-icon { font-size: 1.1rem; margin-bottom: 4px; }
+.stat-value { font-family: var(--mono); font-size: 1rem; font-weight: 700; color: var(--accent); }
+.stat-label { font-size: 0.6rem; color: var(--text3); margin-top: 2px; text-transform: uppercase; }
+.elevation-chart { margin: 12px 0; background: var(--surface); border-radius: var(--radius-sm); padding: 8px; height: 120px; }
+.elevation-chart canvas { width: 100% !important; height: 100% !important; }
+.stats-actions { display: flex; gap: 8px; }
+.btn-action { flex: 1; padding: 12px 8px; border: none; border-radius: var(--radius-sm); font-family: var(--font); font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+.btn-save { background: var(--surface2); color: var(--text); }
+.btn-go { background: var(--accent); color: var(--bg); font-size: 0.95rem; font-weight: 800; }
+.btn-clear { background: var(--surface2); color: var(--danger); }
+.btn-action:active { transform: scale(0.95); }
+
+/* NAV MODE */
+.nav-mode { position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; pointer-events: none; }
+.nav-top { pointer-events: auto; background: linear-gradient(180deg, rgba(10,14,26,0.95), transparent); padding: 48px 16px 24px; }
+.nav-instruction { display: flex; align-items: center; gap: 16px; background: var(--surface); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
+.nav-arrow { font-size: 2rem; font-weight: 800; color: var(--accent); width: 50px; text-align: center; }
+.nav-text { font-size: 1rem; font-weight: 500; }
+.nav-stats { pointer-events: auto; margin-top: auto; display: flex; background: var(--bg2); border-top: 1px solid var(--bg3); padding: 12px 0; }
+.nav-stat { flex: 1; text-align: center; border-right: 1px solid var(--bg3); }
+.nav-stat:last-child { border: none; }
+.nav-stat-val { display: block; font-family: var(--mono); font-size: 1.3rem; font-weight: 700; color: var(--accent); }
+.nav-stat-lbl { font-size: 0.65rem; color: var(--text3); text-transform: uppercase; }
+.btn-stop-nav { pointer-events: auto; background: var(--danger); color: #fff; border: none; padding: 16px; font-family: var(--font); font-size: 1rem; font-weight: 700; cursor: pointer; }
+
+/* SIDE MENU */
+.side-menu { position: fixed; inset: 0; z-index: 2000; display: flex; }
+.menu-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); }
+.menu-panel { position: relative; width: 280px; height: 100%; background: var(--bg2); box-shadow: 4px 0 32px rgba(0,0,0,0.5); display: flex; flex-direction: column; animation: slideIn 0.25s ease; }
+@keyframes slideIn { from { transform: translateX(-100%); } }
+.menu-header { padding: 48px 20px 20px; display: flex; align-items: center; gap: 14px; border-bottom: 1px solid var(--bg3); }
+.menu-avatar { width: 48px; height: 48px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.menu-avatar svg { width: 24px; height: 24px; color: var(--text3); }
+.menu-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.menu-username { font-weight: 600; font-size: 0.95rem; }
+.btn-login { background: none; border: 1px solid var(--accent); color: var(--accent); padding: 6px 12px; border-radius: var(--radius-sm); font-size: 0.75rem; font-family: var(--font); cursor: pointer; margin-top: 4px; }
+.menu-nav { flex: 1; padding: 12px 0; }
+.menu-item { width: 100%; padding: 14px 20px; background: none; border: none; color: var(--text); display: flex; align-items: center; gap: 14px; font-family: var(--font); font-size: 0.9rem; cursor: pointer; }
+.menu-item:active { background: var(--surface); }
+
+/* SUB PANELS */
+.sub-panel { position: fixed; inset: 0; z-index: 2500; background: var(--bg); display: flex; flex-direction: column; animation: slideUp 0.25s ease; }
+@keyframes slideUp { from { transform: translateY(100%); } }
+.sub-panel-header { display: flex; align-items: center; gap: 12px; padding: 48px 16px 16px; border-bottom: 1px solid var(--bg3); }
+.btn-back { width: 36px; height: 36px; background: var(--surface); border: none; border-radius: 50%; color: var(--text); font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.sub-panel-header h2 { font-size: 1.1rem; font-weight: 600; }
+.sub-panel-content { flex: 1; overflow-y: auto; padding: 16px; }
+.empty-state { color: var(--text3); text-align: center; padding: 40px 0; font-size: 0.9rem; }
+.saved-route-card { background: var(--surface); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+.saved-route-card:active { background: var(--surface2); }
+.saved-route-info h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 4px; }
+.saved-route-info p { font-size: 0.75rem; color: var(--text2); }
+.saved-route-actions { display: flex; gap: 8px; }
+.saved-route-actions button { background: none; border: none; font-size: 1.1rem; cursor: pointer; padding: 4px; }
+.setting-item { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--bg3); font-size: 0.9rem; }
+.setting-item select, .setting-item input[type="number"] { background: var(--surface); border: 1px solid var(--bg3); color: var(--text); padding: 8px 12px; border-radius: var(--radius-sm); font-family: var(--font); font-size: 0.85rem; }
+.friend-add { display: flex; gap: 8px; margin-bottom: 16px; }
+.friend-add input { flex: 1; background: var(--surface); border: 1px solid var(--bg3); color: var(--text); padding: 10px 14px; border-radius: var(--radius-sm); font-family: var(--font); font-size: 0.85rem; outline: none; }
+.friend-add input::placeholder { color: var(--text3); }
+.btn-add-friend { width: 42px; background: var(--accent); color: var(--bg); border: none; border-radius: var(--radius-sm); font-size: 1.3rem; cursor: pointer; font-weight: 700; }
+
+/* TOAST */
+.toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); z-index: 5000; background: var(--surface); color: var(--text); padding: 12px 24px; border-radius: var(--radius); font-size: 0.85rem; font-weight: 500; box-shadow: var(--shadow); border: 1px solid var(--accent); animation: toastIn 0.3s ease; }
+@keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(20px); } }
+
+/* MARKERS */
+.waypoint-marker { background: var(--accent); color: var(--bg); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.75rem; font-family: var(--mono); border: 3px solid var(--bg); box-shadow: 0 2px 8px rgba(0,0,0,0.5); }
+.start-marker { background: var(--accent) !important; width: 16px; height: 16px; border-radius: 50%; border: 4px solid white; box-shadow: 0 0 16px var(--accent-glow), 0 2px 8px rgba(0,0,0,0.5); }
+.end-marker { background: var(--danger) !important; width: 16px; height: 16px; border-radius: 50%; border: 4px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.5); }
+.user-location-marker { width: 18px; height: 18px; background: #4285f4; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 20px rgba(66,133,244,0.5); animation: locPulse 2s ease infinite; }
+@keyframes locPulse { 0%,100% { box-shadow: 0 0 10px rgba(66,133,244,0.3); } 50% { box-shadow: 0 0 25px rgba(66,133,244,0.6); } }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 2px; }
+</style>
 </head>
 <body>
     <!-- Splash Screen -->
@@ -30,14 +242,13 @@
                 </svg>
             </div>
             <h1 class="splash-title">VéloWay</h1>
-            <p class="splash-sub" data-i18n="splash_sub">Trace ta route</p>
+            <p class="splash-sub">Trace ta route</p>
             <div class="splash-loader"><div class="loader-bar"></div></div>
         </div>
     </div>
 
     <!-- Main App -->
     <div id="app" class="app hidden">
-        <!-- Top Bar -->
         <header class="topbar">
             <button class="btn-icon" id="btn-menu" aria-label="Menu">
                 <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -48,17 +259,14 @@
             </button>
         </header>
 
-        <!-- Map Container -->
         <div id="map"></div>
 
-        <!-- Search Bar (over map) -->
         <div class="search-bar">
             <svg viewBox="0 0 24 24" class="search-icon"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 16l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-            <input type="text" id="search-input" data-i18n-placeholder="search_placeholder" placeholder="Rechercher un lieu...">
+            <input type="text" id="search-input" placeholder="Rechercher un lieu...">
             <div id="search-results" class="search-results hidden"></div>
         </div>
 
-        <!-- Route Type Selector (floating) -->
         <div class="route-type-selector" id="route-type-selector">
             <button class="route-type-btn active" data-type="road">
                 <svg viewBox="0 0 24 24"><path d="M4 20L12 4l8 16" fill="none" stroke="currentColor" stroke-width="2"/></svg>
@@ -74,18 +282,15 @@
             </button>
         </div>
 
-        <!-- Distance Slider Panel -->
         <div class="distance-panel" id="distance-panel">
             <div class="distance-header">
                 <span data-i18n="target_distance">Distance cible</span>
                 <span class="distance-value" id="distance-value">20 km</span>
             </div>
             <input type="range" id="distance-slider" min="5" max="150" value="20" step="5">
-            <div class="distance-labels">
-                <span>5 km</span><span>150 km</span>
-            </div>
+            <div class="distance-labels"><span>5 km</span><span>150 km</span></div>
             <div class="distance-actions">
-                <button class="btn-generate" id="btn-generate" data-i18n="generate_route">Générer un parcours</button>
+                <button class="btn-generate" id="btn-generate">Générer un parcours</button>
                 <div class="loop-toggle">
                     <label class="toggle-label">
                         <input type="checkbox" id="loop-toggle" checked>
@@ -96,64 +301,35 @@
             </div>
         </div>
 
-        <!-- Route Stats Panel -->
         <div class="stats-panel hidden" id="stats-panel">
             <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon">📏</div>
-                    <div class="stat-value" id="stat-distance">0 km</div>
-                    <div class="stat-label" data-i18n="distance">Distance</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon">⏱️</div>
-                    <div class="stat-value" id="stat-duration">0 min</div>
-                    <div class="stat-label" data-i18n="duration">Durée</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon">⬆️</div>
-                    <div class="stat-value" id="stat-ascent">0 m</div>
-                    <div class="stat-label" data-i18n="ascent">Dénivelé +</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon">⬇️</div>
-                    <div class="stat-value" id="stat-descent">0 m</div>
-                    <div class="stat-label" data-i18n="descent">Dénivelé -</div>
-                </div>
+                <div class="stat-card"><div class="stat-icon">📏</div><div class="stat-value" id="stat-distance">0 km</div><div class="stat-label">Distance</div></div>
+                <div class="stat-card"><div class="stat-icon">⏱️</div><div class="stat-value" id="stat-duration">0 min</div><div class="stat-label">Durée</div></div>
+                <div class="stat-card"><div class="stat-icon">⬆️</div><div class="stat-value" id="stat-ascent">0 m</div><div class="stat-label">Dénivelé +</div></div>
+                <div class="stat-card"><div class="stat-icon">⬇️</div><div class="stat-value" id="stat-descent">0 m</div><div class="stat-label">Dénivelé -</div></div>
             </div>
-            <!-- Elevation Chart -->
-            <div class="elevation-chart" id="elevation-chart">
-                <canvas id="elevation-canvas"></canvas>
-            </div>
+            <div class="elevation-chart" id="elevation-chart"><canvas id="elevation-canvas"></canvas></div>
             <div class="stats-actions">
-                <button class="btn-action btn-save" id="btn-save" data-i18n="save_route">💾 Sauvegarder</button>
-                <button class="btn-action btn-go" id="btn-go" data-i18n="go">🚀 GO</button>
-                <button class="btn-action btn-clear" id="btn-clear" data-i18n="clear">✕ Effacer</button>
+                <button class="btn-action btn-save" id="btn-save">💾 Sauvegarder</button>
+                <button class="btn-action btn-go" id="btn-go">🚀 GO</button>
+                <button class="btn-action btn-clear" id="btn-clear">✕ Effacer</button>
             </div>
         </div>
 
-        <!-- Navigation Mode (GO) -->
+        <!-- Navigation Mode -->
         <div class="nav-mode hidden" id="nav-mode">
             <div class="nav-top">
-                <div class="nav-instruction" id="nav-instruction">
+                <div class="nav-instruction">
                     <div class="nav-arrow" id="nav-arrow">↑</div>
                     <div class="nav-text" id="nav-text">Démarrage...</div>
                 </div>
             </div>
             <div class="nav-stats">
-                <div class="nav-stat">
-                    <span class="nav-stat-val" id="nav-remaining-dist">0 km</span>
-                    <span class="nav-stat-lbl" data-i18n="remaining">Restant</span>
-                </div>
-                <div class="nav-stat">
-                    <span class="nav-stat-val" id="nav-speed">0</span>
-                    <span class="nav-stat-lbl">km/h</span>
-                </div>
-                <div class="nav-stat">
-                    <span class="nav-stat-val" id="nav-eta">--:--</span>
-                    <span class="nav-stat-lbl">ETA</span>
-                </div>
+                <div class="nav-stat"><span class="nav-stat-val" id="nav-remaining-dist">0 km</span><span class="nav-stat-lbl">Restant</span></div>
+                <div class="nav-stat"><span class="nav-stat-val" id="nav-speed">0</span><span class="nav-stat-lbl">km/h</span></div>
+                <div class="nav-stat"><span class="nav-stat-val" id="nav-eta">--:--</span><span class="nav-stat-lbl">ETA</span></div>
             </div>
-            <button class="btn-stop-nav" id="btn-stop-nav" data-i18n="stop_nav">Arrêter la navigation</button>
+            <button class="btn-stop-nav" id="btn-stop-nav">Arrêter la navigation</button>
         </div>
 
         <!-- Side Menu -->
@@ -165,128 +341,618 @@
                         <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7" fill="none" stroke="currentColor" stroke-width="2"/></svg>
                     </div>
                     <div class="menu-user">
-                        <span class="menu-username" id="menu-username" data-i18n="guest">Invité</span>
-                        <button class="btn-login" id="btn-login" data-i18n="login_google">Connexion Google</button>
+                        <span class="menu-username" id="menu-username">Invité</span>
+                        <button class="btn-login" id="btn-login">Connexion Google</button>
                     </div>
                 </div>
                 <nav class="menu-nav">
-                    <button class="menu-item" data-panel="saved">
-                        <span>📂</span><span data-i18n="my_routes">Mes parcours</span>
-                    </button>
-                    <button class="menu-item" data-panel="history">
-                        <span>📊</span><span data-i18n="history">Historique</span>
-                    </button>
-                    <button class="menu-item" data-panel="friends">
-                        <span>👥</span><span data-i18n="friends">Amis</span>
-                    </button>
-                    <button class="menu-item" data-panel="messages">
-                        <span>💬</span><span data-i18n="messages">Messages</span>
-                    </button>
-                    <button class="menu-item" data-panel="settings">
-                        <span>⚙️</span><span data-i18n="settings">Paramètres</span>
-                    </button>
+                    <button class="menu-item" data-panel="saved"><span>📂</span><span>Mes parcours</span></button>
+                    <button class="menu-item" data-panel="history"><span>📊</span><span>Historique</span></button>
+                    <button class="menu-item" data-panel="friends"><span>👥</span><span>Amis</span></button>
+                    <button class="menu-item" data-panel="messages"><span>💬</span><span>Messages</span></button>
+                    <button class="menu-item" data-panel="settings"><span>⚙️</span><span>Paramètres</span></button>
                 </nav>
             </div>
         </div>
 
         <!-- Sub Panels -->
         <div class="sub-panel hidden" id="panel-saved">
-            <div class="sub-panel-header">
-                <button class="btn-back" id="btn-back-saved">←</button>
-                <h2 data-i18n="my_routes">Mes parcours</h2>
-            </div>
-            <div class="sub-panel-content" id="saved-list">
-                <p class="empty-state" data-i18n="no_saved">Aucun parcours sauvegardé</p>
-            </div>
+            <div class="sub-panel-header"><button class="btn-back" id="btn-back-saved">←</button><h2>Mes parcours</h2></div>
+            <div class="sub-panel-content" id="saved-list"><p class="empty-state">Aucun parcours sauvegardé</p></div>
         </div>
-
         <div class="sub-panel hidden" id="panel-history">
-            <div class="sub-panel-header">
-                <button class="btn-back" id="btn-back-history">←</button>
-                <h2 data-i18n="history">Historique</h2>
-            </div>
-            <div class="sub-panel-content" id="history-list">
-                <p class="empty-state" data-i18n="no_history">Aucun historique</p>
-            </div>
+            <div class="sub-panel-header"><button class="btn-back" id="btn-back-history">←</button><h2>Historique</h2></div>
+            <div class="sub-panel-content" id="history-list"><p class="empty-state">Aucun historique</p></div>
         </div>
-
         <div class="sub-panel hidden" id="panel-friends">
-            <div class="sub-panel-header">
-                <button class="btn-back" id="btn-back-friends">←</button>
-                <h2 data-i18n="friends">Amis</h2>
-            </div>
+            <div class="sub-panel-header"><button class="btn-back" id="btn-back-friends">←</button><h2>Amis</h2></div>
             <div class="sub-panel-content">
-                <div class="friend-add">
-                    <input type="text" id="friend-email" data-i18n-placeholder="friend_email" placeholder="Email de l'ami...">
-                    <button class="btn-add-friend" id="btn-add-friend">+</button>
-                </div>
-                <div id="friends-list">
-                    <p class="empty-state" data-i18n="no_friends">Aucun ami ajouté</p>
-                </div>
+                <div class="friend-add"><input type="text" id="friend-email" placeholder="Email de l'ami..."><button class="btn-add-friend" id="btn-add-friend">+</button></div>
+                <div id="friends-list"><p class="empty-state">Aucun ami ajouté</p></div>
             </div>
         </div>
-
         <div class="sub-panel hidden" id="panel-messages">
-            <div class="sub-panel-header">
-                <button class="btn-back" id="btn-back-messages">←</button>
-                <h2 data-i18n="messages">Messages</h2>
-            </div>
-            <div class="sub-panel-content" id="messages-list">
-                <p class="empty-state" data-i18n="no_messages">Aucun message</p>
-            </div>
+            <div class="sub-panel-header"><button class="btn-back" id="btn-back-messages">←</button><h2>Messages</h2></div>
+            <div class="sub-panel-content" id="messages-list"><p class="empty-state">Aucun message</p></div>
         </div>
-
         <div class="sub-panel hidden" id="panel-settings">
-            <div class="sub-panel-header">
-                <button class="btn-back" id="btn-back-settings">←</button>
-                <h2 data-i18n="settings">Paramètres</h2>
-            </div>
+            <div class="sub-panel-header"><button class="btn-back" id="btn-back-settings">←</button><h2>Paramètres</h2></div>
             <div class="sub-panel-content">
-                <div class="setting-item">
-                    <span data-i18n="language">Langue</span>
-                    <select id="lang-select">
-                        <option value="fr">Français</option>
-                        <option value="en">English</option>
-                    </select>
-                </div>
-                <div class="setting-item">
-                    <span data-i18n="units">Unités</span>
-                    <select id="units-select">
-                        <option value="km">Kilomètres</option>
-                        <option value="mi">Miles</option>
-                    </select>
-                </div>
-                <div class="setting-item">
-                    <span data-i18n="map_style">Style carte</span>
-                    <select id="map-style-select">
-                        <option value="satellite">Satellite</option>
-                        <option value="street">Street</option>
-                        <option value="topo">Topo</option>
-                    </select>
-                </div>
-                <div class="setting-item">
-                    <span data-i18n="avg_speed">Vitesse moyenne (km/h)</span>
-                    <input type="number" id="avg-speed" value="20" min="5" max="50">
-                </div>
+                <div class="setting-item"><span>Langue</span><select id="lang-select"><option value="fr">Français</option><option value="en">English</option></select></div>
+                <div class="setting-item"><span>Style carte</span><select id="map-style-select"><option value="satellite">Satellite</option><option value="street">Street</option><option value="topo">Topo</option></select></div>
+                <div class="setting-item"><span>Vitesse moyenne (km/h)</span><input type="number" id="avg-speed" value="20" min="5" max="50"></div>
             </div>
         </div>
 
-        <!-- Toast -->
         <div class="toast hidden" id="toast"></div>
     </div>
 
+    <!-- External libs -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <!-- Firebase SDK (compat mode for simple script tags) -->
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-    <script src="js/i18n.js"></script>
-    <script src="js/map-module.js"></script>
-    <script src="js/routing-module.js"></script>
-    <script src="js/navigation-module.js"></script>
-    <script src="js/social-module.js"></script>
-    <script src="js/app.js"></script>
-    <script src="js/sw-register.js"></script>
+
+<script>
+// ============================================================
+// FIREBASE INIT
+// ============================================================
+firebase.initializeApp({
+    apiKey: "AIzaSyDqFt7lnV8P2WLFBSatlGb7YbbEBjtnTFg",
+    authDomain: "velo-pro-way.firebaseapp.com",
+    projectId: "velo-pro-way",
+    storageBucket: "velo-pro-way.firebasestorage.app",
+    messagingSenderId: "330932339117",
+    appId: "1:330932339117:web:af4a9a8d84575404f9a124"
+});
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// ============================================================
+// MAP MODULE
+// ============================================================
+const MapModule = (() => {
+    let map, tileLayer;
+    let waypoints = [];
+    let waypointMarkers = [];
+    let routePolyline = null;
+    let userLocationMarker = null;
+    let onWaypointAdded = null;
+
+    const TILES = {
+        satellite: { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', attr: 'Esri' },
+        street: { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attr: '© OSM' },
+        topo: { url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', attr: '© OpenTopoMap' }
+    };
+
+    function init(containerId, callback) {
+        onWaypointAdded = callback;
+        map = L.map(containerId, { zoomControl: false, attributionControl: true }).setView([45.75, 4.85], 13);
+        setTileStyle('satellite');
+        map.on('click', (e) => addWaypoint(e.latlng.lat, e.latlng.lng));
+        locateUser();
+    }
+
+    function setTileStyle(style) {
+        const t = TILES[style] || TILES.satellite;
+        if (tileLayer) map.removeLayer(tileLayer);
+        tileLayer = L.tileLayer(t.url, { attribution: t.attr, maxZoom: 19 }).addTo(map);
+    }
+
+    function locateUser() {
+        if (!navigator.geolocation) return;
+        navigator.geolocation.getCurrentPosition(
+            (pos) => { map.setView([pos.coords.latitude, pos.coords.longitude], 14); updateUserLocation(pos.coords.latitude, pos.coords.longitude); },
+            () => {}, { enableHighAccuracy: true, timeout: 10000 }
+        );
+    }
+
+    function updateUserLocation(lat, lng) {
+        if (userLocationMarker) { userLocationMarker.setLatLng([lat, lng]); }
+        else {
+            userLocationMarker = L.marker([lat, lng], { icon: L.divIcon({ className: 'user-location-marker', iconSize: [18, 18] }), zIndexOffset: 1000 }).addTo(map);
+        }
+    }
+
+    function addWaypoint(lat, lng) {
+        const idx = waypoints.length;
+        waypoints.push({ lat, lng });
+        const isFirst = idx === 0;
+        const icon = L.divIcon({
+            className: isFirst ? 'start-marker' : 'waypoint-marker',
+            html: isFirst ? '' : `${idx + 1}`,
+            iconSize: isFirst ? [16, 16] : [28, 28]
+        });
+        const marker = L.marker([lat, lng], { icon, draggable: true }).addTo(map);
+        marker.on('dragend', (e) => { const p = e.target.getLatLng(); waypoints[idx] = { lat: p.lat, lng: p.lng }; if (onWaypointAdded) onWaypointAdded(); });
+        waypointMarkers.push(marker);
+        if (onWaypointAdded) onWaypointAdded();
+    }
+
+    function getWaypoints() { return [...waypoints]; }
+
+    function clearWaypoints() {
+        waypointMarkers.forEach(m => map.removeLayer(m));
+        waypointMarkers = []; waypoints = []; clearRoute();
+    }
+
+    function drawRoute(coords, color = '#00e676') {
+        clearRoute();
+        if (!coords || coords.length < 2) return;
+        routePolyline = L.polyline(coords, { color, weight: 5, opacity: 0.85, smoothFactor: 1, lineCap: 'round' }).addTo(map);
+        map.fitBounds(routePolyline.getBounds(), { padding: [60, 60] });
+    }
+
+    function clearRoute() { if (routePolyline) { map.removeLayer(routePolyline); routePolyline = null; } }
+    function getMap() { return map; }
+    function panTo(lat, lng, zoom) { map.setView([lat, lng], zoom || map.getZoom()); }
+
+    async function geocode(query) {
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`);
+            return await res.json();
+        } catch { return []; }
+    }
+
+    function getUserLocation() {
+        return new Promise((resolve, reject) => {
+            if (!navigator.geolocation) return reject('No geolocation');
+            navigator.geolocation.getCurrentPosition(pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }), reject, { enableHighAccuracy: true, timeout: 10000 });
+        });
+    }
+
+    return { init, setTileStyle, addWaypoint, getWaypoints, clearWaypoints, drawRoute, clearRoute, getMap, panTo, geocode, updateUserLocation, getUserLocation, locateUser };
+})();
+
+// ============================================================
+// ROUTING MODULE
+// ============================================================
+const RoutingModule = (() => {
+    const OSRM = 'https://router.project-osrm.org';
+
+    async function getRoute(waypoints, profile = 'bike') {
+        if (waypoints.length < 2) return null;
+        const p = profile === 'mtb' ? 'foot' : 'bike';
+        const coords = waypoints.map(w => `${w.lng},${w.lat}`).join(';');
+        try {
+            const res = await fetch(`${OSRM}/route/v1/${p}/${coords}?overview=full&geometries=geojson&steps=true`);
+            const data = await res.json();
+            if (data.code !== 'Ok' || !data.routes.length) return null;
+            const route = data.routes[0];
+            return { coords: route.geometry.coordinates.map(c => [c[1], c[0]]), distance: route.distance, duration: route.duration, steps: route.legs.flatMap(l => l.steps) };
+        } catch (e) { console.error('Routing error:', e); return null; }
+    }
+
+    async function generateAutoRoute(start, targetKm, type = 'road', isLoop = true) {
+        const targetM = targetKm * 1000;
+        const radius = targetM / (isLoop ? (2 * Math.PI) : 2);
+        const radiusDeg = radius / 111320;
+        const bearing = Math.random() * 360;
+        const bearingRad = (bearing * Math.PI) / 180;
+        let wps = [start];
+
+        if (isLoop) {
+            const num = 4 + Math.floor(Math.random() * 3);
+            for (let i = 0; i < num; i++) {
+                const angle = bearingRad + (2 * Math.PI * i) / num;
+                const r = radiusDeg * (0.7 + Math.random() * 0.6);
+                wps.push({ lat: start.lat + r * Math.cos(angle), lng: start.lng + r * Math.sin(angle) / Math.cos(start.lat * Math.PI / 180) });
+            }
+            wps.push(start);
+        } else {
+            const endLat = start.lat + radiusDeg * Math.cos(bearingRad);
+            const endLng = start.lng + radiusDeg * Math.sin(bearingRad) / Math.cos(start.lat * Math.PI / 180);
+            wps.push({ lat: (start.lat + endLat) / 2, lng: (start.lng + endLng) / 2 });
+            wps.push({ lat: endLat, lng: endLng });
+        }
+        return await getRoute(wps, type);
+    }
+
+    async function getElevation(coords) {
+        const step = Math.max(1, Math.floor(coords.length / 100));
+        const sampled = coords.filter((_, i) => i % step === 0);
+        const locations = sampled.map(c => `${c[0]},${c[1]}`).join('|');
+        try {
+            const res = await fetch(`https://api.opentopodata.org/v1/srtm30m?locations=${locations}`);
+            const data = await res.json();
+            if (data.status !== 'OK') return null;
+            const elevations = data.results.map(r => r.elevation || 0);
+            let asc = 0, desc = 0;
+            for (let i = 1; i < elevations.length; i++) { const d = elevations[i] - elevations[i-1]; if (d > 0) asc += d; else desc += Math.abs(d); }
+            return { profile: elevations, totalAscent: Math.round(asc), totalDescent: Math.round(desc) };
+        } catch { return null; }
+    }
+
+    function formatDistance(m) { return m >= 1000 ? (m / 1000).toFixed(1) + ' km' : Math.round(m) + ' m'; }
+    function formatDuration(sec, spd) {
+        const hours = spd ? (sec / 3600) * (20 / spd) : sec / 3600;
+        const h = Math.floor(hours); const m = Math.round((hours - h) * 60);
+        return h > 0 ? `${h}h${m.toString().padStart(2, '0')}` : `${m} min`;
+    }
+
+    return { getRoute, generateAutoRoute, getElevation, formatDistance, formatDuration };
+})();
+
+// ============================================================
+// NAVIGATION MODULE
+// ============================================================
+const NavigationModule = (() => {
+    let isNav = false, watchId = null, routeCoords = [], routeSteps = [], stepIdx = 0, totalDist = 0, onUpdate = null, onEnd = null;
+
+    function haversine(lat1, lon1, lat2, lon2) {
+        const R = 6371000, dLat = (lat2-lat1)*Math.PI/180, dLon = (lon2-lon1)*Math.PI/180;
+        const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    function start(coords, steps, distance, cbs) {
+        isNav = true; routeCoords = coords; routeSteps = steps || []; totalDist = distance; stepIdx = 0;
+        onUpdate = cbs.onUpdate; onEnd = cbs.onEnd;
+        if (navigator.geolocation) watchId = navigator.geolocation.watchPosition(onPos, ()=>{}, { enableHighAccuracy: true, timeout: 5000, maximumAge: 1000 });
+        onUpdate({ type: 'start', instruction: 'Allez vers le parcours', arrow: '↑', remainingDist: totalDist, speed: 0, eta: '--:--' });
+    }
+
+    function stop() { isNav = false; if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; } if (onEnd) onEnd(); }
+
+    function onPos(pos) {
+        if (!isNav) return;
+        const lat = pos.coords.latitude, lng = pos.coords.longitude;
+        const speedKmh = Math.round((pos.coords.speed || 0) * 3.6);
+        MapModule.updateUserLocation(lat, lng);
+
+        let minD = Infinity, closestIdx = 0;
+        for (let i = 0; i < routeCoords.length; i++) { const d = haversine(lat, lng, routeCoords[i][0], routeCoords[i][1]); if (d < minD) { minD = d; closestIdx = i; } }
+
+        let remaining = 0;
+        for (let i = closestIdx; i < routeCoords.length - 1; i++) remaining += haversine(routeCoords[i][0], routeCoords[i][1], routeCoords[i+1][0], routeCoords[i+1][1]);
+
+        let eta = '--:--';
+        if (speedKmh > 2) { const m = Math.round((remaining/1000)/speedKmh*60); const h = Math.floor(m/60); eta = h > 0 ? `${h}h${(m%60).toString().padStart(2,'0')}` : `${m%60} min`; }
+
+        let instruction = 'Suivre la route', arrow = '↑';
+        if (remaining < 50) { instruction = 'Arrivée !'; arrow = '🏁'; }
+        else if (routeSteps.length > stepIdx && routeSteps[stepIdx].maneuver) {
+            const s = routeSteps[stepIdx], loc = s.maneuver.location;
+            if (haversine(lat, lng, loc[1], loc[0]) < 30) stepIdx++;
+            const mod = s.maneuver.modifier || '';
+            if (mod.includes('left')) { instruction = 'Tourner à gauche'; arrow = '←'; }
+            else if (mod.includes('right')) { instruction = 'Tourner à droite'; arrow = '→'; }
+            if (s.name) instruction += ` — ${s.name}`;
+        }
+
+        MapModule.panTo(lat, lng);
+        onUpdate({ type: 'update', instruction, arrow, remainingDist: remaining, speed: speedKmh, eta });
+    }
+
+    function isActive() { return isNav; }
+    return { start, stop, isActive };
+})();
+
+// ============================================================
+// SOCIAL MODULE (Firebase + localStorage fallback)
+// ============================================================
+const SocialModule = (() => {
+    let currentUser = null;
+
+    function initAuth(onAuthChange) {
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                currentUser = { uid: user.uid, displayName: user.displayName || 'Cycliste', email: user.email, photoURL: user.photoURL };
+                db.collection('users').doc(user.uid).set({ displayName: user.displayName, email: user.email, photoURL: user.photoURL, lastSeen: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+            } else { currentUser = null; }
+            onAuthChange(currentUser);
+        });
+    }
+
+    async function loginGoogle() {
+        try { await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
+        catch { try { await auth.signInWithRedirect(new firebase.auth.GoogleAuthProvider()); } catch(e) { console.error(e); } }
+    }
+
+    async function logout() { await auth.signOut(); currentUser = null; }
+    function getUser() { return currentUser; }
+
+    // Routes
+    async function saveRoute(route) {
+        route.id = 'route_' + Date.now(); route.createdAt = new Date().toISOString();
+        if (currentUser) { route.ownerUid = currentUser.uid; await db.collection('users').doc(currentUser.uid).collection('routes').doc(route.id).set(route); }
+        else { const d = _g(); if (!d.routes) d.routes = []; d.routes.unshift(route); _s(d); }
+        return route;
+    }
+    async function getSavedRoutes() {
+        if (currentUser) { const s = await db.collection('users').doc(currentUser.uid).collection('routes').orderBy('createdAt','desc').get(); return s.docs.map(d=>d.data()); }
+        return (_g().routes || []);
+    }
+    async function deleteRoute(id) {
+        if (currentUser) await db.collection('users').doc(currentUser.uid).collection('routes').doc(id).delete();
+        else { const d = _g(); d.routes = (d.routes||[]).filter(r=>r.id!==id); _s(d); }
+    }
+    async function getRoute(id) {
+        if (currentUser) { const doc = await db.collection('users').doc(currentUser.uid).collection('routes').doc(id).get(); return doc.exists ? doc.data() : null; }
+        return (_g().routes||[]).find(r=>r.id===id);
+    }
+
+    // History
+    async function addToHistory(entry) {
+        entry.id = 'hist_' + Date.now(); entry.date = new Date().toISOString();
+        if (currentUser) await db.collection('users').doc(currentUser.uid).collection('history').doc(entry.id).set(entry);
+        else { const d = _g(); if(!d.history) d.history=[]; d.history.unshift(entry); if(d.history.length>50) d.history=d.history.slice(0,50); _s(d); }
+    }
+    async function getHistory() {
+        if (currentUser) { const s = await db.collection('users').doc(currentUser.uid).collection('history').orderBy('date','desc').limit(50).get(); return s.docs.map(d=>d.data()); }
+        return (_g().history||[]);
+    }
+
+    // Friends
+    async function addFriend(email) {
+        if (!currentUser) return false;
+        const snap = await db.collection('users').where('email','==',email).limit(1).get();
+        let fd;
+        if (!snap.empty) { const f = snap.docs[0]; fd = { id: f.id, email, name: f.data().displayName || email.split('@')[0], addedAt: new Date().toISOString() }; }
+        else fd = { id: 'pending_'+Date.now(), email, name: email.split('@')[0], addedAt: new Date().toISOString(), pending: true };
+        await db.collection('users').doc(currentUser.uid).collection('friends').doc(fd.id).set(fd);
+        return true;
+    }
+    async function getFriends() { if (!currentUser) return []; const s = await db.collection('users').doc(currentUser.uid).collection('friends').get(); return s.docs.map(d=>d.data()); }
+    async function removeFriend(id) { if (currentUser) await db.collection('users').doc(currentUser.uid).collection('friends').doc(id).delete(); }
+
+    // Messages
+    async function sendMessage(friendId, content) {
+        if (!currentUser) return;
+        const msg = { id: 'msg_'+Date.now(), from: currentUser.uid, fromName: currentUser.displayName, to: friendId, content, date: new Date().toISOString() };
+        await db.collection('users').doc(currentUser.uid).collection('messages').doc(msg.id).set(msg);
+        await db.collection('users').doc(friendId).collection('messages').doc(msg.id).set(msg);
+    }
+    async function getMessages() { if (!currentUser) return []; const s = await db.collection('users').doc(currentUser.uid).collection('messages').orderBy('date','desc').limit(50).get(); return s.docs.map(d=>d.data()); }
+
+    // Settings (always local)
+    function getSetting(k, def) { try { const d = JSON.parse(localStorage.getItem('vw_set')||'{}'); return d[k] !== undefined ? d[k] : def; } catch { return def; } }
+    function setSetting(k, v) { try { const d = JSON.parse(localStorage.getItem('vw_set')||'{}'); d[k]=v; localStorage.setItem('vw_set', JSON.stringify(d)); } catch{} }
+
+    // Local fallback
+    function _g() { try { return JSON.parse(localStorage.getItem('vw_data')||'{}'); } catch { return {}; } }
+    function _s(d) { localStorage.setItem('vw_data', JSON.stringify(d)); }
+
+    return { initAuth, loginGoogle, logout, getUser, saveRoute, getSavedRoutes, deleteRoute, getRoute, addToHistory, getHistory, addFriend, getFriends, removeFriend, sendMessage, getMessages, getSetting, setSetting };
+})();
+
+// ============================================================
+// APP CONTROLLER
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+    let currentRoute = null, elevationData = null, elevationChart = null, routeType = 'road', avgSpeed = 20;
+
+    // Splash → App
+    setTimeout(() => {
+        const splash = document.getElementById('splash');
+        splash.classList.add('fade-out');
+        setTimeout(() => { splash.style.display = 'none'; document.getElementById('app').classList.remove('hidden'); initApp(); }, 600);
+    }, 2500);
+
+    function initApp() {
+        const savedStyle = SocialModule.getSetting('mapStyle', 'satellite');
+        avgSpeed = SocialModule.getSetting('avgSpeed', 20);
+        document.getElementById('map-style-select').value = savedStyle;
+        document.getElementById('avg-speed').value = avgSpeed;
+
+        MapModule.init('map', onWaypointsChanged);
+        MapModule.setTileStyle(savedStyle);
+        bindUI();
+    }
+
+    function bindUI() {
+        // Menu
+        document.getElementById('btn-menu').addEventListener('click', () => document.getElementById('side-menu').classList.remove('hidden'));
+        document.getElementById('btn-profile').addEventListener('click', () => document.getElementById('side-menu').classList.remove('hidden'));
+        document.getElementById('menu-overlay').addEventListener('click', closeMenu);
+
+        // Login
+        document.getElementById('btn-login').addEventListener('click', () => SocialModule.loginGoogle());
+        SocialModule.initAuth(onAuthChanged);
+
+        // Menu items
+        document.querySelectorAll('.menu-item').forEach(item => item.addEventListener('click', () => { closeMenu(); openPanel(item.dataset.panel); }));
+
+        // Back buttons
+        ['saved','history','friends','messages','settings'].forEach(p => {
+            const btn = document.getElementById(`btn-back-${p}`);
+            if (btn) btn.addEventListener('click', () => closePanel(p));
+        });
+
+        // Search
+        let st;
+        document.getElementById('search-input').addEventListener('input', (e) => { clearTimeout(st); st = setTimeout(() => searchPlace(e.target.value), 500); });
+        document.addEventListener('click', (e) => { if (!e.target.closest('.search-bar')) document.getElementById('search-results').classList.add('hidden'); });
+
+        // Route type
+        document.querySelectorAll('.route-type-btn').forEach(btn => btn.addEventListener('click', () => {
+            document.querySelectorAll('.route-type-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active'); routeType = btn.dataset.type;
+        }));
+
+        // Distance slider
+        const slider = document.getElementById('distance-slider');
+        slider.addEventListener('input', () => document.getElementById('distance-value').textContent = `${slider.value} km`);
+
+        // Generate / Save / GO / Clear
+        document.getElementById('btn-generate').addEventListener('click', generateRoute);
+        document.getElementById('btn-save').addEventListener('click', saveCurrentRoute);
+        document.getElementById('btn-go').addEventListener('click', startNavigation);
+        document.getElementById('btn-clear').addEventListener('click', clearAll);
+        document.getElementById('btn-stop-nav').addEventListener('click', stopNavigation);
+
+        // Settings
+        document.getElementById('map-style-select').addEventListener('change', (e) => { MapModule.setTileStyle(e.target.value); SocialModule.setSetting('mapStyle', e.target.value); });
+        document.getElementById('avg-speed').addEventListener('change', (e) => { avgSpeed = parseInt(e.target.value)||20; SocialModule.setSetting('avgSpeed', avgSpeed); });
+
+        // Friends
+        document.getElementById('btn-add-friend').addEventListener('click', () => {
+            const email = document.getElementById('friend-email').value.trim();
+            if (email) { SocialModule.addFriend(email); document.getElementById('friend-email').value=''; renderFriends(); showToast('Ami ajouté !'); }
+        });
+    }
+
+    async function searchPlace(query) {
+        const results = document.getElementById('search-results');
+        if (query.length < 3) { results.classList.add('hidden'); return; }
+        const places = await MapModule.geocode(query);
+        if (!places.length) { results.classList.add('hidden'); return; }
+        results.innerHTML = places.map(p => `<div class="search-result-item" data-lat="${p.lat}" data-lng="${p.lon}">${p.display_name}</div>`).join('');
+        results.classList.remove('hidden');
+        results.querySelectorAll('.search-result-item').forEach(item => item.addEventListener('click', () => {
+            MapModule.panTo(parseFloat(item.dataset.lat), parseFloat(item.dataset.lng), 15);
+            MapModule.addWaypoint(parseFloat(item.dataset.lat), parseFloat(item.dataset.lng));
+            results.classList.add('hidden'); document.getElementById('search-input').value = '';
+        }));
+    }
+
+    async function onWaypointsChanged() {
+        const wps = MapModule.getWaypoints();
+        if (wps.length < 2) return;
+        showToast('Calcul du parcours...');
+        const route = await RoutingModule.getRoute(wps, routeType);
+        if (route) { currentRoute = route; MapModule.drawRoute(route.coords); showStats(route); fetchElevation(route.coords); }
+    }
+
+    async function generateRoute() {
+        let start;
+        const wps = MapModule.getWaypoints();
+        if (wps.length > 0) start = wps[0];
+        else { try { start = await MapModule.getUserLocation(); MapModule.addWaypoint(start.lat, start.lng); } catch { showToast('Cliquez sur la carte d\'abord'); return; } }
+
+        showToast('Génération du parcours...');
+        const route = await RoutingModule.generateAutoRoute(start, parseInt(document.getElementById('distance-slider').value), routeType, document.getElementById('loop-toggle').checked);
+        if (route) { currentRoute = route; MapModule.drawRoute(route.coords); showStats(route); fetchElevation(route.coords); }
+        else showToast('Erreur, réessayez');
+    }
+
+    function showStats(route) {
+        document.getElementById('distance-panel').classList.add('hidden');
+        document.getElementById('stats-panel').classList.remove('hidden');
+        document.getElementById('stat-distance').textContent = RoutingModule.formatDistance(route.distance);
+        document.getElementById('stat-duration').textContent = RoutingModule.formatDuration(route.duration, avgSpeed);
+        document.getElementById('stat-ascent').textContent = '...';
+        document.getElementById('stat-descent').textContent = '...';
+    }
+
+    async function fetchElevation(coords) {
+        elevationData = await RoutingModule.getElevation(coords);
+        if (elevationData) {
+            document.getElementById('stat-ascent').textContent = `${elevationData.totalAscent} m`;
+            document.getElementById('stat-descent').textContent = `${elevationData.totalDescent} m`;
+            drawElevationChart(elevationData);
+        }
+    }
+
+    function drawElevationChart(data) {
+        const canvas = document.getElementById('elevation-canvas');
+        if (elevationChart) elevationChart.destroy();
+        elevationChart = new Chart(canvas, {
+            type: 'line',
+            data: { labels: data.profile.map((_,i) => `${(i/data.profile.length*100).toFixed(0)}%`), datasets: [{ data: data.profile, borderColor: '#00e676', backgroundColor: 'rgba(0,230,118,0.15)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#5a6478', font: { size: 10 }, callback: v=>`${v}m` } } } }
+        });
+    }
+
+    async function saveCurrentRoute() {
+        if (!currentRoute) return;
+        const name = prompt('Nom du parcours', 'Mon parcours');
+        if (name === null) return;
+        await SocialModule.saveRoute({ name: name||'Mon parcours', distance: currentRoute.distance, duration: currentRoute.duration, coords: currentRoute.coords, steps: currentRoute.steps, waypoints: MapModule.getWaypoints(), elevation: elevationData, type: routeType });
+        showToast('Parcours sauvegardé !');
+    }
+
+    function startNavigation() {
+        if (!currentRoute) return;
+        document.getElementById('stats-panel').classList.add('hidden');
+        document.getElementById('nav-mode').classList.remove('hidden');
+        document.getElementById('route-type-selector').classList.add('hidden');
+        document.querySelector('.search-bar').style.display = 'none';
+        NavigationModule.start(currentRoute.coords, currentRoute.steps, currentRoute.distance, {
+            onUpdate: (d) => { document.getElementById('nav-arrow').textContent = d.arrow; document.getElementById('nav-text').textContent = d.instruction; document.getElementById('nav-remaining-dist').textContent = RoutingModule.formatDistance(d.remainingDist); document.getElementById('nav-speed').textContent = d.speed; document.getElementById('nav-eta').textContent = d.eta; },
+            onEnd: stopNavigation
+        });
+        SocialModule.addToHistory({ distance: currentRoute.distance, duration: currentRoute.duration, type: routeType });
+        showToast('Navigation démarrée');
+    }
+
+    function stopNavigation() {
+        NavigationModule.stop();
+        document.getElementById('nav-mode').classList.add('hidden');
+        document.getElementById('stats-panel').classList.remove('hidden');
+        document.getElementById('route-type-selector').classList.remove('hidden');
+        document.querySelector('.search-bar').style.display = '';
+    }
+
+    function clearAll() {
+        MapModule.clearWaypoints(); currentRoute = null; elevationData = null;
+        if (elevationChart) { elevationChart.destroy(); elevationChart = null; }
+        document.getElementById('stats-panel').classList.add('hidden');
+        document.getElementById('distance-panel').classList.remove('hidden');
+    }
+
+    function closeMenu() { document.getElementById('side-menu').classList.add('hidden'); }
+    function openPanel(name) {
+        const p = document.getElementById(`panel-${name}`);
+        if (!p) return; p.classList.remove('hidden');
+        if (name === 'saved') renderSavedRoutes();
+        if (name === 'history') renderHistory();
+        if (name === 'friends') renderFriends();
+        if (name === 'messages') renderMessages();
+    }
+    function closePanel(name) { document.getElementById(`panel-${name}`).classList.add('hidden'); }
+
+    function onAuthChanged(user) {
+        const u = document.getElementById('menu-username'), b = document.getElementById('btn-login'), a = document.getElementById('menu-avatar');
+        if (user) { u.textContent = user.displayName; b.textContent = 'Déconnexion'; b.onclick = () => SocialModule.logout(onAuthChanged); if (user.photoURL) a.innerHTML = `<img src="${user.photoURL}" alt="">`; }
+        else { u.textContent = 'Invité'; b.textContent = 'Connexion Google'; b.onclick = () => SocialModule.loginGoogle(); a.innerHTML = `<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7" fill="none" stroke="currentColor" stroke-width="2"/></svg>`; }
+    }
+
+    async function renderSavedRoutes() {
+        const list = document.getElementById('saved-list');
+        const routes = await SocialModule.getSavedRoutes();
+        if (!routes.length) { list.innerHTML = '<p class="empty-state">Aucun parcours sauvegardé</p>'; return; }
+        list.innerHTML = routes.map(r => `<div class="saved-route-card" data-id="${r.id}"><div class="saved-route-info"><h3>${r.name}</h3><p>${RoutingModule.formatDistance(r.distance)} · ${r.type||'road'} · ${new Date(r.createdAt).toLocaleDateString()}</p></div><div class="saved-route-actions"><button class="btn-load-route" data-id="${r.id}">🗺️</button><button class="btn-delete-route" data-id="${r.id}">🗑️</button></div></div>`).join('');
+        list.querySelectorAll('.btn-load-route').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); loadRoute(btn.dataset.id); closePanel('saved'); }));
+        list.querySelectorAll('.btn-delete-route').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); if(confirm('Supprimer ?')) { SocialModule.deleteRoute(btn.dataset.id); renderSavedRoutes(); showToast('Supprimé'); } }));
+    }
+
+    async function loadRoute(id) {
+        const route = await SocialModule.getRoute(id);
+        if (!route) return;
+        clearAll();
+        if (route.waypoints) route.waypoints.forEach(w => MapModule.addWaypoint(w.lat, w.lng));
+        currentRoute = { coords: route.coords, distance: route.distance, duration: route.duration, steps: route.steps||[] };
+        elevationData = route.elevation;
+        MapModule.drawRoute(route.coords); showStats(currentRoute);
+        if (elevationData) { document.getElementById('stat-ascent').textContent = `${elevationData.totalAscent} m`; document.getElementById('stat-descent').textContent = `${elevationData.totalDescent} m`; drawElevationChart(elevationData); }
+    }
+
+    async function renderHistory() {
+        const list = document.getElementById('history-list');
+        const hist = await SocialModule.getHistory();
+        if (!hist.length) { list.innerHTML = '<p class="empty-state">Aucun historique</p>'; return; }
+        list.innerHTML = hist.map(h => `<div class="saved-route-card"><div class="saved-route-info"><h3>${RoutingModule.formatDistance(h.distance)}</h3><p>${h.type||'road'} · ${new Date(h.date).toLocaleDateString()}</p></div></div>`).join('');
+    }
+
+    async function renderFriends() {
+        const list = document.getElementById('friends-list');
+        const friends = await SocialModule.getFriends();
+        if (!friends.length) { list.innerHTML = '<p class="empty-state">Aucun ami ajouté</p>'; return; }
+        list.innerHTML = friends.map(f => `<div class="saved-route-card"><div class="saved-route-info"><h3>${f.name}</h3><p>${f.email}</p></div><div class="saved-route-actions"><button class="btn-rm-friend" data-id="${f.id}">✕</button></div></div>`).join('');
+        list.querySelectorAll('.btn-rm-friend').forEach(btn => btn.addEventListener('click', () => { SocialModule.removeFriend(btn.dataset.id); renderFriends(); }));
+    }
+
+    async function renderMessages() {
+        const list = document.getElementById('messages-list');
+        const msgs = await SocialModule.getMessages();
+        if (!msgs.length) { list.innerHTML = '<p class="empty-state">Aucun message</p>'; return; }
+        list.innerHTML = msgs.map(m => `<div class="saved-route-card"><div class="saved-route-info"><h3>${typeof m.content === 'string' ? m.content : m.content.text||'Parcours partagé'}</h3><p>${m.fromName||''} · ${new Date(m.date).toLocaleDateString()}</p></div></div>`).join('');
+    }
+
+    function showToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.remove('hidden'); setTimeout(() => t.classList.add('hidden'), 2500); }
+});
+</script>
 </body>
 </html>
